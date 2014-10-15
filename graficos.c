@@ -14,6 +14,7 @@ int dir; // habla con ensambla para ver tecla
 int tam;
 int color = 1; //siempre inicia jugador 1 rojo
 bool cambio = true;
+int lugarvalido = 0;
 
 void tamano(){
 	tam = getch(); // tam deberia ir declarado afuera? 
@@ -21,7 +22,7 @@ void tamano(){
 		case '1': // 6x6
 			printw("6x6 seleccionado \n");
 			tam = 1;
-			ponercentro6();
+			//ponercentro6();
 			tablero6();
 			break;
 		case '2': // 8x8
@@ -33,7 +34,7 @@ void tamano(){
 		case '3': // 10x10
 			printw("10x10 seleccionado \n");
 			tam = 3;
-			ponercentro10();
+			//ponercentro10();
 			tablero10();
 			break;
 		case 27: // ESC
@@ -133,10 +134,12 @@ void jugar() { // mover cursor
 
 	switch(cursor){
 		case 10: //enter. poner ficha
-			int lugarvalido = ponerficha(color);
+
+			lugarvalido = ponerficha(color, tam);
+			printw("%i", lugarvalido);
 			if (lugarvalido != 3) {// kede aki OLA KE ASE
 
-//				mvaddch();  necesito coordenadas
+				mvaddch(x, y, '&');
 			
 				if (cambio == true ){
 					cambio = false;
