@@ -7,8 +7,8 @@ SECTION .data
 	m10: times 100 dd 0 ; 10x10
 	xcor: dd 0 ; coordenada x
 	ycor: dd 0 ; coordenada y
-	xcoro: dd 0
-	ycoro: dd 0 
+	xcoro: dd 0 ; copia de coordenada original x
+	ycoro: dd 0 ; copia de coordenada original y
 	
 SECTION .text
 	global ponerficha
@@ -17,14 +17,19 @@ SECTION .text
 	
 ponerficha:
 	mov edx, [esp+4] ; le estoy pasando el color.
-	mov ebx, [esp+8] ; le estoy pasando el tama;o del tablero
+	mov ecx, [esp+8] ; le estoy pasando el tama;o del tablero
 	call posicionvacia ; verifica que se puede poner una ficha en posicion valida (posicion este vacia)
 					   ; en eax tiene 0 = vacia o 3 = llena
 	cmp eax, 3
 	je devuelve
 
-	; si es 0 pone ficha POS VALIDA ES EL PROBLEMA. fijo estoy sumando mal, entonces tengo que poner suma de x y y en EDI. y moverme eso.
+	; si posicionvacia devuelve 0, puedo poner ficha y llamo a posicionvalida 
 	call posicionvalida ; ver si esta a la par de una ficha de distinto color
+	cmp eax, 0
+	je devuelve
+	mov eax, 1
+
+	jmp end
 
 ; falta color
 ;	cmp ebx, 3
@@ -165,7 +170,7 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 	mov eax, 0 ; pos vacia
 
 ; a partir de aqui hay que hacer casos por tablero. ver verificar_celda de flow2.asm (coordenada total)
-	cmp ebx, 1 ;tablerp 6x6
+	cmp ebx, 1 ;tablero 6x6
 	je pos_vac_6x6
 
 	cmp ebx, 2 ;tablero 8x8
@@ -175,6 +180,10 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 	je pos_vac_10x10
 
 	pos_vac_6x6:
+		mov ecx, [m6+edi]
+		cmp ecx, 0
+		je acabar
+		jmp mov_3
 
 	pos_vac_8x8:
 		mov ecx, [m8+edi]
@@ -184,568 +193,204 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 		jmp mov_3
 
 	pos_vac_10x10:
+		mov ecx, [m10+edi]
+		cmp ecx, 0
+		je acabar
+		jmp mov_3
 
 	cmp eax, edi ; ver si [xcor] es 0 
 	je acabar
 
 	mov_3:
-	mov eax, 3 ; 3 = hay ficha en ese lugar.
+		mov eax, 3 ; 3 = hay ficha en ese lugar.
 
 	acabar:
 ret
 
-posicionvalida: ;parametro: color ficha
-;ecx tama;o
-	mov esi, [xcor]
-	mov [xcoro], esi ; si no aqui [esi]
+verificar_celda: ; contenido de celda
+	pop ecx ; tama;o
+	mov edi, [xcor]
+	add edi, [ycor] 
 
-	mov esi, [ycor]
-	mov [ycoro], esi
+	cmp ecx, 1 ; 6x6
+	je tablero_N1
+	cmp ecx, 2 ; 8x8
+	je tablero_N2
+	cmp ecx, 3 ; 10x10
+	je tablero_N3
 
+	tablero_N1:
+		mov edx, [m6+edi]
+		jmp contenido
+	tablero_N2:
+		mov edx, [m8+edi]
+		jmp contenido
+	tablero_N3:
+		mov edx, [m10+edi]
 
-	cmp edx, 1 ; es rojo
-	je jugador1
-	cmp edx, 2 ; es azul
-	je jugador2
+	contenido:
+		cmp edx, 0 ;campo vacio
+		je vacio
+		cmp edx, 1 ; & rojo
+		je rojo
+		cmp edx, 2 ; & azul
+		je azul
 
-	jugador1: ; si en alugno de sus 8 neighbors es azul, devluevle que puede
-		push eax ;;FUCK POPPEAR A REGISTROS. YO QUIERO POPPEAR A YCOR. 
-		mov eax, [ycor] ; si no funca, es mov eax, ycor sin []
-		push eax
-		ver_N1: 
-			call mov_arriba ; ver si no esta fuera del tablero
-			cmp eax, 0
-			je ver_NE1
-			mov esi, 1 ; 1 = Norte
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarN1:
-			pop eax
-			mov [ycor], eax
-			pop eax
+	vacio:
+		mov ebx, 0
+		jmp terminar_verificar
+	rojo:
+		mov ebx, 1
+		jmp terminar_verificar
+	azul:
+		mov ebx, 2
+		jmp terminar_verificar    ;guarda en ebx lo que se haya encontrado en la celda actual, sea un color o un campo vacio
 
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_NE1:
-			call mov_NE
-			cmp eax, 0
-			je ver_E1
-			mov esi, 2 ; 2 = NE
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarNE1:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [xcor]
-		push eax
-		ver_E1:
-			call mov_derecha
-			cmp eax, 0
-			je ver_SE1
-			mov esi, 3 ; 3 = Este
-			mov eax, [xcor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarE1:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor] ; poner corchetes en todas y seguir compilando. 
-		push eax
-		ver_SE1:
-			call mov_SE
-			cmp eax, 0
-			je ver_S1
-			mov esi, 4 ; 4 = SE
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarSE1:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_S1:
-			call mov_abajo
-			cmp eax, 0
-			je ver_SO1
-			mov esi, 5 ; 5 = Sur
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarS1:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, ycor
-		push eax
-		ver_SO1:
-			call mov_SO
-			cmp eax, 0
-			je ver_O1
-			mov esi, 6 ; 6 = SO
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarSO1:
-			pop eax
-			mov [ycor], eax
-			pop eax
-			
-
-		push eax
-		mov eax, [xcor]
-		push eax
-		ver_O1:
-			call mov_izquierda
-			cmp eax, 0
-			je ver_NO1
-			mov esi, 7 ; 7 = Oeste
-			mov eax, [xcor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarO1:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_NO1:
-			call mov_NE
-			cmp eax, 0
-			je adios ; a que salta
-			mov esi, 8 ; 8 = NO
-			mov eax, [ycor]
-			cmp [eax], dword 2 ; dice si es azul
-			je buscarcierre1
-			regresarNO1:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-
-		buscarcierre1: ; que no se encuentre un 0 o se salga del tablero
-;se encuentre una fucha del misco color que uno esta pieniendo. 
-
-			cmp esi, 1
-			je buscar_N1
-			cmp esi, 2
-			je buscar_NE1
-			cmp esi, 3
-			je buscar_E1
-			cmp esi, 4
-			je buscar_SE1
-			cmp esi, 5
-			je buscar_S1
-			cmp esi, 6
-			je buscar_SO1
-			cmp esi, 7
-			je buscar_O1
-			cmp esi, 8
-			je buscar_NO1
-
-			buscar_N1:
-				call mov_arriba
-				cmp eax, 0
-				je regresarN1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarN1
-				jmp buscar_N1
-
-			buscar_NE1:
-				call mov_NE
-				cmp eax, 0
-				je regresarNE1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarNE1
-				jmp buscar_NE1
-
-			buscar_S1:
-				call mov_abajo
-				cmp eax, 0
-				je regresarS1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarS1
-				jmp buscar_S1
-
-			buscar_E1:
-				call mov_derecha
-				cmp eax, 0
-				je regresarE1
-				mov eax, [xcor]
-				cmp edx, eax
-				je ubicarfichax
-				cmp eax, 0
-				je regresarE1
-				jmp buscar_E1
-
-			buscar_O1:
-				call mov_izquierda
-				cmp eax, 0
-				je regresarO1
-				mov eax, [xcor]
-				cmp edx, eax
-				je ubicarfichax
-				cmp eax, 0
-				je regresarO1
-				jmp buscar_O1
-
-			buscar_SE1:
-				call mov_SE
-				cmp eax, 0
-				je regresarSE1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarSE1
-				jmp buscar_SE1
-
-			buscar_SO1:
-				call mov_SO
-				cmp eax, 0
-				je regresarSO1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarSO1
-				jmp buscar_SO1
-
-			buscar_NO1:
-				call mov_NO
-				cmp eax, 0
-				je regresarNO1
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarNO1
-				jmp buscar_NO1
-
-	jugador2: ; si alguno de sus 8 neighbors es rojo, puede poner
-		
-; sadddddddddddddddddddddd
-
-		push eax
-		mov eax, [ycor]
-		push eax 
-		ver_N2: 
-			call mov_arriba ; ver si no esta fuera del tablero
-			cmp eax, 0
-			je ver_NE2
-			mov esi, 1 ; 1 = Norte
-			mov eax, [ycor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarN2:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_NE2:
-			call mov_NE
-			cmp eax, 0
-			je ver_E2
-			mov esi, 2 ; 2 = NE
-			mov eax, [ycor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarNE2:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [xcor]
-		push eax
-		ver_E2:
-			call mov_derecha
-			cmp eax, 0
-			je ver_SE2
-			mov esi, 3 ; 3 = Este
-			mov eax, [xcor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarE2:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_SE2:
-			call mov_SE
-			cmp eax, 0
-			je ver_S2
-			mov esi, 4 ; 4 = SE
-			mov eax, [ycor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarSE2:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [xcor]
-		push eax
-		ver_S2:
-			call mov_abajo
-			cmp eax, 0
-			je ver_SO2
-			mov esi, 5 ; 5 = Sur
-			mov eax, [xcor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarS2:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_SO2:
-			call mov_SO
-			cmp eax, 0
-			je ver_O2
-			mov esi, 6 ; 6 = SO
-			mov eax, [ycor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarSO2:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-		push eax
-		mov eax, [xcor]
-		push eax
-		ver_O2:
-			call mov_izquierda
-			cmp eax, 0
-			je ver_NO2
-			mov esi, 7 ; 7 = Oeste
-			mov eax, [xcor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarO2:
-			pop eax
-			mov [xcor], eax
-			pop eax
-
-		push eax
-		mov eax, [ycor]
-		push eax
-		ver_NO2:
-			call mov_NE
-			cmp eax, 0
-			je adios ; a que salta
-			mov esi, 8 ; 8 = NO
-			mov eax, [ycor]
-			cmp [eax], dword 1 ; dice si es rojo
-			je buscarcierre2
-			regresarNO2:
-			pop eax
-			mov [ycor], eax
-			pop eax
-
-
-		buscarcierre2: ; que no se encuentre un 0 o se salga del tablero
-;se encuentre una fucha del misco color que uno esta pieniendo. 
-
-			cmp esi, 1
-			je buscar_N2
-			cmp esi, 2
-			je buscar_NE2
-			cmp esi, 3
-			je buscar_E2
-			cmp esi, 4
-			je buscar_SE2
-			cmp esi, 5
-			je buscar_S2
-			cmp esi, 6
-			je buscar_SO2
-			cmp esi, 7
-			je buscar_O2
-			cmp esi, 8
-			je buscar_NO2
-
-			buscar_N2: ; cambia algo para jugador 2?
-				call mov_arriba
-				cmp eax, 0
-				je regresarN2
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarN2
-				jmp buscar_N2
-
-			buscar_NE2:
-				call mov_NE
-				cmp eax, 0
-				je regresarNE2
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarNE2
-				jmp buscar_NE2
-
-			buscar_S2:
-				call mov_abajo
-				cmp eax, 0
-				je regresarS2
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarS2
-				jmp buscar_S2
-
-			buscar_E2:
-				call mov_derecha
-				cmp eax, 0
-				je regresarE2
-				mov eax, [xcor]
-				cmp edx, eax
-				je ubicarfichax
-				cmp eax, 0
-				je regresarE2
-				jmp buscar_E2
-
-			buscar_O2:
-				call mov_izquierda
-				cmp eax, 0
-				je regresarO2
-				mov eax, [xcor]
-				cmp edx, eax
-				je ubicarfichax
-				cmp eax, 0
-				je regresarO2
-				jmp buscar_O2
-
-			buscar_SE2:
-				call mov_SE
-				cmp eax, 0
-				je regresarSE2
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarSE2
-				jmp buscar_SE2
-
-			buscar_SO2:
-				call mov_SO
-				cmp eax, 0
-				je regresarSO2
-				mov eax, [ycor]
-				cmp edx, eax
-				je ubicarfichay
-				cmp eax, 0
-				je regresarSO2
-				jmp buscar_SO2
-
-			buscar_NO2:
-				call mov_NO
-				cmp eax, 0
-				je regresarNO2
-				mov eax, [ycor]
-				cmp edx, eax
-				mov eax, [ycor] ; ???
-				push eax ; para match pop de ubicarficha
-				je ubicarfichay
-				cmp eax, 0
-				je regresarNO2
-				jmp buscar_NO2
-
-	ubicarfichax:
-		; mover en la matriz que corresponde el color de la ficha en esa coordenada //era un pop xcor
-
-		
-
-		cmp ebx, 1 ; 6x6
-		je odio1
-		cmp ebx, 2 ;8x8
-		je las1
-		cmp ebx, 3 ;10x10
-		je etiquetas1
-
-		odio1:
-			mov edi, [xcoro]
-			mov [m6+edi], edx ; mov [m6+xcor], edx
-			jmp adios
-
-		las1:
-			mov edi, [xcoro]
-			mov [m8+edi], edx
-			jmp adios
-
-		etiquetas1:
-			mov edi, [xcoro]
-			mov [m10+edi], edx
-			jmp adios
-
-	ubicarfichay:
-;		pop eax ; mover en la matriz que corresponde el color de la ficha en esa coordenada // pop ycor
-
-		cmp ebx, 1 ; 6x6
-		je odio
-		cmp ebx, 2 ;8x8
-		je las
-		cmp ebx, 3 ;10x10
-		je etiquetas
-
-		odio:
-			mov edi, [ycoro]
-			mov [m6+edi], edx
-			jmp adios
-
-		las:
-			mov edi, [ycoro]
-			mov [m8+edi], edx 
-			jmp adios
-	
-		etiquetas:
-			mov edi, [ycoro]
-			mov [m10+edi], edx
-			jmp adios
-		
-	adios:
-
+	terminar_verificar:
+		push ecx
 ret
 
+posicionvalida: ; ve si esta a la par de una ficha
+; ve si esta a la par de una ficha
+;ecx tama;o
+	mov edi, [xcor] ; guarda coordenadas originales
+	mov [xcoro], edi ;; esto da problema con la primera fila. h0lp pl0x
+	mov edi, [ycor]
+	mov [ycoro], edi
+
+	push edx ; color
+
+	mov edi, [xcor]
+	add edi, [ycor]   
+	push edi  ; celda donde quiero poner la ficha (valor acumulado de cuanto me quiero mover en la matriz)
+	push ecx ; tama;o
+
+	ver_N:
+		call mov_arriba
+		cmp eax, 0
+		je ver_NE
+		call verificar_celda
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha ; si es 1 o 2, que esta a par de una ficha
+
+	ver_NE:
+		call mov_NE
+		cmp eax, 0
+		je ver_E
+		call verificar_celda
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_E:
+		call mov_derecha
+		cmp eax, 0
+		je ver_SE
+		call verificar_celda
+		mov edi, [xcoro]
+		mov [xcor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_SE:
+		call mov_SE
+		cmp eax, 0
+		je ver_S
+		call verificar_celda
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_S:
+		call mov_abajo
+		cmp eax, 0
+		je ver_SO
+		call verificar_celda
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_SO:
+		call mov_SO
+		cmp eax, 0
+		je ver_O
+		call verificar_celda
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_O:
+		call mov_izquierda
+		cmp eax, 0
+		je ver_NO
+		call verificar_celda
+		mov edi, [xcoro]
+		mov [xcor], edi
+		cmp ebx, 0
+		jne poner_ficha
+
+	ver_NO:
+		call mov_NO
+		cmp eax, 0
+		je no_ficha
+		call verificar_celda 
+		mov edi, [ycoro]
+		mov [ycor], edi
+		cmp ebx, 0
+		jne poner_ficha
+		jmp no_ficha ; agregue esta linea y el condenado se cae. 
+	
+
+;	pops:
+;		pop ecx 
+;		pop edi 
+;		pop edx 
+
+	poner_ficha: ; pone la ficha. fuck nombres de etiquetas significativos. 
+		pop ecx 
+		pop edi 
+		pop edx 
+		cmp ecx, 1
+		je poner6
+
+		cmp ecx, 2
+		je poner8
+
+		cmp ecx, 3
+		je poner8
+
+		poner6:
+			mov [m6+edi], edx
+			jmp devolver_valor
+
+		poner8:
+			mov [m8+edi], edx
+			jmp devolver_valor
+	
+		poner10:
+			mov [m10+edi], edx
+
+	devolver_valor:
+		mov eax, 1 ; si pudo poner ficha
+		jmp finalizar_validar
+	
+	no_ficha:
+		pop ecx 
+		pop edi 
+		pop edx 
+		mov eax, 0 ; no pudo poner ficha
+
+	finalizar_validar:
+ret
+
+
+; moverse por diagonales
 	mov_NO:
 		mov edi, [ycor]
 		cmp ebx, 1 ; 6x6
@@ -872,7 +517,7 @@ ret
 
 ponercentro8: ; falta poner centro 6x6 y 10x10
 	mov eax, 1 ; ficha roja = 1
-	mov [m8+108], eax ; bajo 128 dwords (4 filas) y le sumo para llegar al centro (4,4)
+	mov [m8+108], eax ; (4,4)
 	mov [m8+144], eax ; (5,5)
 	mov eax, 2 ; ficha azul = 2
 	mov [m8+112], eax ; (4,5)
@@ -881,15 +526,21 @@ ret
 
 ponercentro6:
 	mov eax, 1 ; ficha roja = 1
-
+	mov [m6+312], eax ; (3,3) / m6 + m8 (64*4) + (15-1)*4
+	mov [m6+340], eax ; (4,4)
 
 	mov eax, 2 ; ficha azul = 2
+; (3,4)
+; (4,3)
 
 ponercentro10:
 	mov eax, 1 ; ficha roja = 1
-
+; (5,5) / m10 + m6 (36*4) + m8 (64*4) + campos bajados
+; (6,6)
 
 	mov eax, 2 ; ficha azul = 2
+; (5,6)
+; (6,5)
 
 juegofinalizado: ; ya no hay mas espacio en el tablero
 
