@@ -10,11 +10,11 @@ extern void ponercentro10();
 
 int x = 0; // coordenada x
 int y = 1; // coordenada y
-int dir; // habla con ensambla para ver tecla
-int tam;
+int dir; // habla con ensambla para ver tecla presionada
+int tam; // el tama;o del tablero
 int color = 1; //siempre inicia jugador 1 rojo
-bool cambio = true;
-int lugarvalido = 0;
+bool cambio = true; //cambio de color de las fichas
+int lugarvalido = 0; //dice si es un lugar valido o no
 
 void tamano(){
 	tam = getch(); // tam deberia ir declarado afuera? 
@@ -69,6 +69,8 @@ void tablero6(){ //tablero de 6x6
 	mvaddch(2, 10, '&'); // (4,5)
 	mvaddch(3, 7, '&'); // (5,4)
 
+	attron(COLOR_PAIR(1));
+
 	move(0, 1); // cursor en primera casilla 
 
 }
@@ -93,6 +95,8 @@ void tablero8(){
 	mvaddch(3, 13, '&'); // (4,5)
 	mvaddch(4, 10, '&'); // (5,4)
 
+	attron(COLOR_PAIR(1));
+
 	move(0, 1); // cursor en primera casilla 
 }
 
@@ -114,6 +118,8 @@ void tablero10(){
 	attron(COLOR_PAIR(2));  //azules
 	mvaddch(4, 16, '&'); // (4,5)
 	mvaddch(5, 13, '&'); // (5,4)
+
+	attron(COLOR_PAIR(1));
 
 	move(0, 1); // cursor en primera casilla 
 }
@@ -137,20 +143,27 @@ void jugar() { // mover cursor
 
 			lugarvalido = ponerficha(color, tam);
 			printw("%i", lugarvalido);
-			if (lugarvalido != 3) {// kede aki OLA KE ASE
-
-				mvaddch(x, y, '&');
+/*
+			if (lugarvalido == 1 || lugarvalido == 2) {
 			
-				if (cambio == true ){
+				if (cambio == true ){ //cambia entre dos jugadores
 					cambio = false;
+					cambiarcolor();
+					attron(COLOR_PAIR(color));
 				}	
 				else {
 					cambio = true;
+					cambiarcolor();
+					attron(COLOR_PAIR(color));
 				}
-				cambiarcolor();
+
+				mvaddch(x, y, '&');
+
 			}
 			else{
+				//printw("Movimiento inválido\n");
 			}
+*/
 			break;
 
 		case KEY_LEFT:
@@ -190,6 +203,10 @@ void jugar() { // mover cursor
 			break;
 
 		case KEY_F(1): //ayuda
+			clear(); // como me devuelvo a la pantalla anterior?
+			printw("Flechas direccionales: mueve cursor\n");
+			printw("enter: pone ficha\n");
+			printw("F2: reiniciar\n");
 			break;
 		case KEY_F(2): //reiniciar
 			break;
