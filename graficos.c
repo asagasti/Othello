@@ -7,6 +7,12 @@ extern int fueratablero(int dir, int tam);
 extern void ponercentro6();
 extern void ponercentro8();
 extern void ponercentro10();
+extern int turno = 0;
+
+void tablero6();
+void tablero8();
+void tablero10();
+
 
 int x = 0; // coordenada x
 int y = 1; // coordenada y
@@ -127,9 +133,13 @@ void tablero10(){
 void cambiarcolor(){
 	if (cambio == true) {
 		color = 1;
+		turno_mio = 1;
+		turno_oponente = 2;
 	}
 	else {
 		color = 2;
+		turno_oponente = 1;
+		turno_mio = 2; 
 	}
 }
 
@@ -141,9 +151,9 @@ void jugar() { // mover cursor
 	switch(cursor){
 		case 10: //enter. poner ficha
 
-			lugarvalido = ponerficha(color, tam);
-			printw("%i", lugarvalido);
-/*
+			lugarvalido = ponerficha(color, tam); // siempre esta imprimiendo un 3
+		//	printw("%i", lugarvalido);
+
 			if (lugarvalido == 1 || lugarvalido == 2) {
 			
 				if (cambio == true ){ //cambia entre dos jugadores
@@ -161,9 +171,9 @@ void jugar() { // mover cursor
 
 			}
 			else{
-				//printw("Movimiento inválido\n");
+				//print("Movimiento inválido\n");
 			}
-*/
+
 			break;
 
 		case KEY_LEFT:
@@ -233,7 +243,6 @@ void inicio(){ // Menú del juego
 	printw("Ayuda (F1) \n");
 	tamano();
 	refresh();
-
 }
 
 int main() {
