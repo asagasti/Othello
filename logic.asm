@@ -1,7 +1,10 @@
 ; Amanda Sagasti - B36269
+; ver unica condicion para poner ficha (haya al menos una del color contrario y una del mismo color al final)
+; un solo metodo para moverme en 8 direcciones parametrizando la distancia (vector)
 
 SECTION .data
-	global colorficha
+	global turno_mio
+	global turno_oponente
 	m8: times 64 dd 0 ; matriz de 8x8
 	m6: times 36 dd 0 ; matriz de 6x6
 	m10: times 100 dd 0 ; 10x10
@@ -9,6 +12,9 @@ SECTION .data
 	ycor: dd 0 ; coordenada y
 	xcoro: dd 0 ; copia de coordenada original x
 	ycoro: dd 0 ; copia de coordenada original y
+	turno_mio: dd 0
+	turno_oponente: dd 0
+;	distancia: dd 0 ; vector donde puedo parametrizar la distancia que me voy a mover para cada una de las 8 direcciones
 	
 SECTION .text
 	global ponerficha
@@ -16,18 +22,25 @@ SECTION .text
 	global ponercentro8
 	
 ponerficha:
+; Devuelve un 3 si no  es una posicion valida
+; Devuelve un 1 si es una posicion valida.
+
 	mov edx, [esp+4] ; le estoy pasando el color.
 	mov ecx, [esp+8] ; le estoy pasando el tama;o del tablero
+
+	push ecx
 	call posicionvacia ; verifica que se puede poner una ficha en posicion valida (posicion este vacia)
 					   ; en eax tiene 0 = vacia o 3 = llena
-	cmp eax, 3
+	pop ecx
+	cmp eax, 3 ; no pudo poner ficha
 	je devuelve
 
 	; si posicionvacia devuelve 0, puedo poner ficha y llamo a posicionvalida 
 	call posicionvalida ; ver si esta a la par de una ficha de distinto color
-	cmp eax, 0
+	cmp eax, 0 ; 0 = no pudo poner ficha 
 	je devuelve
-	mov eax, 1
+	; si pudo poner ficha
+	mov eax, 1 ; else mueve a eax un 1
 
 	jmp end
 
@@ -70,7 +83,7 @@ fueratablero:
 	mov_arriba:
 		mov edi, [ycor]
 		cmp ebx, 1 ; 6x6
-		je mov_up_6x6 ;;como le digo yo que eso es lo que vale? digaos, que el 1 es 6x6 2 8x8 and so fort
+		je mov_up_6x6
 		cmp ebx, 2 ; 8x8
 		je mov_up_8x8
 		cmp ebx, 3 ;10x10
@@ -145,7 +158,7 @@ fueratablero:
 			jmp fin
 
 		mov_right_8x8:
-			cmp edi, 28
+			cmp edi, 28 ; por que 28?
 			jg mov_invalido
 			mov [xcor], edi
 			mov eax, 1
@@ -169,7 +182,6 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 	add edi, [ycor]
 	mov eax, 0 ; pos vacia
 
-; a partir de aqui hay que hacer casos por tablero. ver verificar_celda de flow2.asm (coordenada total)
 	cmp ebx, 1 ;tablero 6x6
 	je pos_vac_6x6
 
@@ -189,7 +201,6 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 		mov ecx, [m8+edi]
 		cmp ecx, 0
 		je acabar
-		; nigga fuck your tea
 		jmp mov_3
 
 	pos_vac_10x10:
@@ -208,9 +219,9 @@ posicionvacia: ;falta verifica que esta a la par de una ficha
 ret
 
 verificar_celda: ; contenido de celda
-	pop ecx ; tama;o
+	mov ecx, [esp+4] ; recupera tama;o
 	mov edi, [xcor]
-	add edi, [ycor] 
+	add edi, [ycor] ; acumulado
 
 	cmp ecx, 1 ; 6x6
 	je tablero_N1
@@ -247,12 +258,13 @@ verificar_celda: ; contenido de celda
 		jmp terminar_verificar    ;guarda en ebx lo que se haya encontrado en la celda actual, sea un color o un campo vacio
 
 	terminar_verificar:
-		push ecx
 ret
 
-posicionvalida: ; ve si esta a la par de una ficha
+posicionvalida: 
+; DEvuelve un 1 si esta a la par de una ficha
+; Devuelve un 0 si no esta a la par de una ficha
 ; ve si esta a la par de una ficha
-;ecx tama;o
+; ecx tama;o
 	mov edi, [xcor] ; guarda coordenadas originales
 	mov [xcoro], edi ;; esto da problema con la primera fila. h0lp pl0x
 	mov edi, [ycor]
@@ -270,89 +282,127 @@ posicionvalida: ; ve si esta a la par de una ficha
 		cmp eax, 0
 		je ver_NE
 		call verificar_celda
-		mov edi, [ycoro]
-		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha ; si es 1 o 2, que esta a par de una ficha
+		; que se salte el primero la primera vez y depues siga
+		ver_N_1: ; entra la primera vez
+			cmp ebx, [turno_mio] 
+			je ver_NE
+			jmp ver_N
+		ver_N_2:
+			cmp ebx, [turno_oponente] ; turno es el color opuesto
+			je ver_NE
+
+
 
 	ver_NE:
+		mov edi, [ycoro]
+		mov [ycor], edi ; restaura coordenadas viejas
 		call mov_NE
 		cmp eax, 0
 		je ver_E
 		call verificar_celda
-		mov edi, [ycoro]
-		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha
+
+		ver_NE_1:
+			cmp ebx, [turno_mio] 
+			je ver_E
+			jmp ver_NE
+		ver_NE_2:
+			cmp ebx, [turno_oponente]
+			je ver_E
 
 	ver_E:
 		call mov_derecha
 		cmp eax, 0
 		je ver_SE
 		call verificar_celda
-		mov edi, [xcoro]
-		mov [xcor], edi
-		cmp ebx, 0
-		jne poner_ficha
+
+		ver_E_1:
+			cmp ebx, [turno_mio]
+			je ver_SE
+			jmp ver_E
+		ver_E_2:
+			cmp ebx, [turno_oponente]
+			je ver_SE
 
 	ver_SE:
+		mov edi, [ycoro]
+		mov [ycor], edi ; restaura coordenadas viejas
 		call mov_SE
 		cmp eax, 0
 		je ver_S
 		call verificar_celda
+
+		ver_SE_1:
+			cmp ebx, [turno_mio]	
+			je ver_S
+			jmp ver_SE
+		ver_SE_2:
+			cmp ebx, [turno_oponente]
+			je ver_S
+	ver_S:
 		mov edi, [ycoro]
 		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha
-
-	ver_S:
 		call mov_abajo
 		cmp eax, 0
 		je ver_SO
 		call verificar_celda
-		mov edi, [ycoro]
-		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha
+
+		ver_S_1:
+			cmp ebx, [turno_mio]
+			je ver_SO
+			jmp ver_S
+		ver_S_2:
+			cmp ebx, [turno_opuesto]
+			je ver_SO
 
 	ver_SO:
+		mov edi, [ycoro]
+		mov [ycor], edi
 		call mov_SO
 		cmp eax, 0
 		je ver_O
 		call verificar_celda
-		mov edi, [ycoro]
-		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha
+
+		ver_SO_1:
+			cmp ebx, [turno_mio]
+			je ver_O
+			jmp ver_SO
+		ver_SO_2:
+			cmp ebx, [turno_oponente]
+			je ver_O
 
 	ver_O:
+		mov edi, [xcoro]
+		mov [xcor], edi
 		call mov_izquierda
 		cmp eax, 0
 		je ver_NO
 		call verificar_celda
-		mov edi, [xcoro]
-		mov [xcor], edi
-		cmp ebx, 0
-		jne poner_ficha
+
+		ver_O_1:
+			cmp ebx, [turno_mio]
+			je ver_NO
+			jmp ver_O
+		ver_SO_2:
+			cmp ebx, [turno_oponente]
+			je ver _NO
 
 	ver_NO:
+		mov edi, [ycoro]
+		mov [ycor], edi
 		call mov_NO
 		cmp eax, 0
 		je no_ficha
 		call verificar_celda 
-		mov edi, [ycoro]
-		mov [ycor], edi
-		cmp ebx, 0
-		jne poner_ficha
-		jmp no_ficha ; agregue esta linea y el condenado se cae. 
-	
+		ver_NO_1:
+			cmp ebx, [turno_mio]
+;;?????????????????????????????????????????????????
 
 ;	pops:
 ;		pop ecx 
 ;		pop edi 
 ;		pop edx 
 
-	poner_ficha: ; pone la ficha. fuck nombres de etiquetas significativos. 
+	poner_ficha: ; pone la ficha.
 		pop ecx 
 		pop edi 
 		pop edx 
@@ -370,8 +420,39 @@ posicionvalida: ; ve si esta a la par de una ficha
 			jmp devolver_valor
 
 		poner8:
-			mov [m8+edi], edx
-			jmp devolver_valor
+			cmp edx, 1 ; ficha roja
+			je poner_azul_8x8
+
+			mov [m8+edi], dword 2 ;ficha azul
+			jmp fin_8x8
+			poner_azul_8x8:
+				cmp ebx, 1
+				je poner_la_ficha_azul_8x8
+				; si se encuentra una del mismo color, devuelvase a seguir buscando
+				; pasarle "valor" de direccion por pila, hacer 8 compares para devolverme a la direccion siguiente
+				push edx
+				push edi
+				push ecx
+				jmp mover_0
+				poner_la_ficha_azul_8x8:
+					mov [m8+edi], dword 1
+					jmp fin_8x8
+	
+			poner_rojo_8x8:
+				cmp ebx, 2
+				je poner_la_ficha_roja_8x8
+				; si se encuentra una del mismo color, devuelvase a seguir buscando
+				; pasarle "valor" de direccion por pila, hacer 8 compares para devolverme a la direccion siguiente
+				push edx
+				push edi
+				push ecx
+				jmp mover_0
+				poner_la_ficha_roja_8x8:
+					mov [m8+edi], dword 2
+					jmp fin_8x8							
+
+			fin_8x8:
+				jmp devolver_valor
 	
 		poner10:
 			mov [m10+edi], edx
@@ -380,11 +461,14 @@ posicionvalida: ; ve si esta a la par de una ficha
 		mov eax, 1 ; si pudo poner ficha
 		jmp finalizar_validar
 	
-	no_ficha:
+	no_ficha: ; aqui hay error
 		pop ecx 
 		pop edi 
 		pop edx 
 		mov eax, 0 ; no pudo poner ficha
+
+	mover_0:
+		mov eax, 0
 
 	finalizar_validar:
 ret
@@ -544,8 +628,8 @@ ponercentro10:
 
 juegofinalizado: ; ya no hay mas espacio en el tablero
 
-	fin_6x6:
-	fin_8x8:
-	fin_10x10:
+	bye_6x6:
+	bye_8x8:
+	bye_10x10:
 
 ret
